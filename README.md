@@ -9,3 +9,7 @@ The proxy DLL template was generated using maluramichael's [dll-proxy-generator]
 - Copy `d3d9.dll` and `chainload.txt` to LR2's directory.
 - Add a line to the chainload.txt file containing a path to a library.
 - Launch the game.
+
+## Requirements
+
+- [Microsoft Visual C++ Redistributable for Visual Studio 2019 (32-bit)](https://aka.ms/vs/16/release/vc_redist.x86.exe)
