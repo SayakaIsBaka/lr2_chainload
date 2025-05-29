@@ -54,17 +54,12 @@ void LoadExternalD3D9(HMODULE hModule) {
 
 	if (library_list.is_open())
 	{
-		// Read filenames from each line and call LoadLibrary.
 		for (std::wstring line; std::getline(library_list, line);)
 		{
-			// Treat lines starting with '#' as comments.
-			if (line.empty() || line.starts_with(L"#"))
-				continue;
-
-			// Too lazy to make the code clean, it works for now
+			// Find the external d3d9 directory
 			if (line.starts_with(L"d3d9_overwrite=")) {
 				d3d9path = line.substr(wcslen(L"d3d9_overwrite="));
-				continue;
+				break;
 			}
 		}
 	}
