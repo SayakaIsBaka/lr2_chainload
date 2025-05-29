@@ -3,6 +3,8 @@
 #include <windows.h>
 #include <filesystem>
 
+std::filesystem::path d3d9path;
+
 struct d3d9_dll {
 	HMODULE dll;
 	FARPROC OrignalD3DPERF_BeginEvent;
@@ -42,6 +44,32 @@ __declspec(naked) void FakeDirect3DShaderValidatorCreate9() { _asm { jmp[d3d9.Or
 __declspec(naked) void FakePSGPError() { _asm { jmp[d3d9.OrignalPSGPError] } }
 __declspec(naked) void FakePSGPSampleTexture() { _asm { jmp[d3d9.OrignalPSGPSampleTexture] } }
 
+void LoadExternalD3D9(HMODULE hModule) {
+	TCHAR module_path[MAX_PATH] = {};
+	GetModuleFileName(hModule, module_path, MAX_PATH);
+	auto library_list = std::wifstream(
+		// Strip the filename part from the module path, then add 'chainload.txt'.
+		std::filesystem::path(module_path).remove_filename().append("chainload.txt")
+	);
+
+	if (library_list.is_open())
+	{
+		// Read filenames from each line and call LoadLibrary.
+		for (std::wstring line; std::getline(library_list, line);)
+		{
+			// Treat lines starting with '#' as comments.
+			if (line.empty() || line.starts_with(L"#"))
+				continue;
+
+			// Too lazy to make the code clean, it works for now
+			if (line.starts_with(L"d3d9_overwrite=")) {
+				d3d9path = line.substr(wcslen(L"d3d9_overwrite="));
+				continue;
+			}
+		}
+	}
+}
+
 void LoadDlls(HMODULE hModule) {
 	TCHAR module_path[MAX_PATH] = {};
 	GetModuleFileName(hModule, module_path, MAX_PATH);
@@ -70,9 +98,16 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	{
 	case DLL_PROCESS_ATTACH:
 	{
+		LoadExternalD3D9(hModule);
 		GetSystemDirectory(system_dir, MAX_PATH);
 
-		d3d9.dll = LoadLibrary(std::filesystem::path(system_dir).append("d3d9.dll").c_str());
+		if (d3d9path.empty()) {
+			d3d9.dll = LoadLibrary(std::filesystem::path(system_dir).append("d3d9.dll").c_str());
+		}
+		else {
+			d3d9.dll = LoadLibrary(std::filesystem::path(d3d9path).append("d3d9.dll").c_str());
+		}
+
 		if (d3d9.dll == 0)
 		{
 			MessageBox(0, L"Cannot load original d3d9.dll library", L"Proxy", MB_ICONERROR);
