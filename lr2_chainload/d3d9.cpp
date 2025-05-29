@@ -79,7 +79,7 @@ void LoadDlls(HMODULE hModule) {
 		for (std::wstring line; std::getline(library_list, line);)
 		{
 			// Treat lines starting with '#' as comments.
-			if (line.empty() || line.starts_with(L"#"))
+			if (line.empty() || line.starts_with(L"#") || line.starts_with(L"d3d9_overwrite="))
 				continue;
 
 			LoadLibrary(line.c_str());
