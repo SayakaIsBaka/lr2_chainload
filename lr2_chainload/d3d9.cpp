@@ -3,7 +3,7 @@
 #include <windows.h>
 #include <filesystem>
 
-std::filesystem::path d3d9path;
+static std::filesystem::path d3d9path;
 
 struct d3d9_dll {
 	HMODULE dll;
@@ -58,7 +58,7 @@ void LoadExternalD3D9(HMODULE hModule) {
 		{
 			// Find the external d3d9 directory
 			if (line.starts_with(L"d3d9_overwrite=")) {
-				d3d9path = line.substr(wcslen(L"d3d9_overwrite="));
+				d3d9path = line.substr(std::wstring_view(L"d3d9_overwrite=").length());
 				break;
 			}
 		}
@@ -100,7 +100,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 			d3d9.dll = LoadLibrary(std::filesystem::path(system_dir).append("d3d9.dll").c_str());
 		}
 		else {
-			d3d9.dll = LoadLibrary(std::filesystem::path(d3d9path).append("d3d9.dll").c_str());
+			d3d9.dll = LoadLibrary(d3d9path.append("d3d9.dll").c_str());
 		}
 
 		if (d3d9.dll == 0)
