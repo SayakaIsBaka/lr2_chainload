@@ -3,8 +3,6 @@
 #include <windows.h>
 #include <filesystem>
 
-static std::filesystem::path d3d9path;
-
 struct d3d9_dll {
 	HMODULE dll;
 	FARPROC OrignalD3DPERF_BeginEvent;
@@ -44,34 +42,17 @@ __declspec(naked) void FakeDirect3DShaderValidatorCreate9() { _asm { jmp[d3d9.Or
 __declspec(naked) void FakePSGPError() { _asm { jmp[d3d9.OrignalPSGPError] } }
 __declspec(naked) void FakePSGPSampleTexture() { _asm { jmp[d3d9.OrignalPSGPSampleTexture] } }
 
-void LoadExternalD3D9(HMODULE hModule) {
+auto LoadConfig(HMODULE hModule) {
+	struct result { std::filesystem::path d3d9path; std::vector<std::wstring> modules; };
+
 	TCHAR module_path[MAX_PATH] = {};
 	GetModuleFileName(hModule, module_path, MAX_PATH);
 	auto library_list = std::wifstream(
 		// Strip the filename part from the module path, then add 'chainload.txt'.
 		std::filesystem::path(module_path).remove_filename().append("chainload.txt")
 	);
-
-	if (library_list.is_open())
-	{
-		for (std::wstring line; std::getline(library_list, line);)
-		{
-			// Find the external d3d9 directory
-			if (line.starts_with(L"d3d9_overwrite=")) {
-				d3d9path = line.substr(std::wstring_view(L"d3d9_overwrite=").length());
-				break;
-			}
-		}
-	}
-}
-
-void LoadDlls(HMODULE hModule) {
-	TCHAR module_path[MAX_PATH] = {};
-	GetModuleFileName(hModule, module_path, MAX_PATH);
-	auto library_list = std::wifstream(
-		// Strip the filename part from the module path, then add 'chainload.txt'.
-		std::filesystem::path(module_path).remove_filename().append("chainload.txt")
-	);
+	std::filesystem::path d3d9path;
+	std::vector<std::wstring> modules;
 
 	if (library_list.is_open())
 	{
@@ -79,12 +60,15 @@ void LoadDlls(HMODULE hModule) {
 		for (std::wstring line; std::getline(library_list, line);)
 		{
 			// Treat lines starting with '#' as comments.
-			if (line.empty() || line.starts_with(L"#") || line.starts_with(L"d3d9_overwrite="))
+			if (line.empty() || line.starts_with(L"#"))
 				continue;
-
-			LoadLibrary(line.c_str());
+			if (line.starts_with(L"d3d9_overwrite="))
+				d3d9path = line.substr(std::wstring_view(L"d3d9_overwrite=").length());
+			else
+				modules.push_back(line);
 		}
 	}
+	return result{ d3d9path, modules };
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
@@ -93,14 +77,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	{
 	case DLL_PROCESS_ATTACH:
 	{
-		LoadExternalD3D9(hModule);
-		GetSystemDirectory(system_dir, MAX_PATH);
+		auto [d3d9path, modules] = LoadConfig(hModule);
 
 		if (d3d9path.empty()) {
+			GetSystemDirectory(system_dir, MAX_PATH);
 			d3d9.dll = LoadLibrary(std::filesystem::path(system_dir).append("d3d9.dll").c_str());
 		}
 		else {
-			d3d9.dll = LoadLibrary(d3d9path.append("d3d9.dll").c_str());
+			d3d9.dll = LoadLibrary(d3d9path.c_str());
 		}
 
 		if (d3d9.dll == 0)
@@ -126,7 +110,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		d3d9.OrignalPSGPError = GetProcAddress(d3d9.dll, "PSGPError");
 		d3d9.OrignalPSGPSampleTexture = GetProcAddress(d3d9.dll, "PSGPSampleTexture");
 
-		LoadDlls(hModule);
+		for (const auto& mod : modules)
+			LoadLibrary(mod.c_str());
 
 		break;
 	}
