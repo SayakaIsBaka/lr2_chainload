@@ -7,7 +7,15 @@ The proxy DLL template was generated using maluramichael's [dll-proxy-generator]
 ## Usage
 
 - Copy `d3d9.dll` and `chainload.txt` to LR2's directory.
-- Add a line to the chainload.txt file containing a path to a library.
+- Add a line to the `chainload.txt` file containing a path to a library. For example, if you want to load a file named `LRbase62.dll`:
+```
+# Comments are prefixed with a # character
+# One line corresponds to one path to a library; just add more lines if you want to load multiple libraries
+# If the file is in LR2's folder
+LRbase62.dll
+# Or with a full path
+X:\My\Folder\LRbase62.dll
+```
 - Launch the game.
 
 You can also load a specific `d3d9.dll` file instead of the default system one by specifying the following line in `chainload.txt`:
